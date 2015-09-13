@@ -1,6 +1,7 @@
 __author__ = "nikos.daniilidis"
 
 from Graph import Graph, Vertex, Edge
+from RandomGraph import RandomGraph
 from GraphWorld import CircleLayout, GraphWorld
 from pprint import pprint
 
@@ -43,11 +44,27 @@ if __name__ == "__main__":
         vs.append(Vertex(alphabet[v]))   
     g = Graph(vs)
     layout = CircleLayout(g)
-    g.add_regular_edges(4, 100)
+    g.add_regular_edges(9, 100)
     
     # draw the graph
     gw = GraphWorld()
     gw.show_graph(g, layout)
     gw.mainloop()
+    
+    # test random graph
+    alphabet = 'abcdefghijklmnopqrstuvwxyz'
+    vs = []
+    for v in range(24):
+        vs.append(Vertex(alphabet[v]))   
+    g = RandomGraph(vs)
+    layout = CircleLayout(g)
+    g.add_random_edges(0.7)
+    
+    # draw the graph
+    gw = GraphWorld()
+    gw.show_graph(g, layout)
+    gw.mainloop()
+    
+   
 
     
