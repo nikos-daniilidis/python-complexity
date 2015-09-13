@@ -37,9 +37,13 @@ if __name__ == "__main__":
     print g.out_vertices(v)
     
     # test creation of Graph of degree d
-    g = Graph([u, v, w])
+    alphabet = 'abcdefghijklmnopqrstuvwxyz'
+    vs = []
+    for v in range(10):
+        vs.append(Vertex(alphabet[v]))   
+    g = Graph(vs)
     layout = CircleLayout(g)
-    g.add_regular_edges(2, 3)
+    g.add_regular_edges(4, 100)
     
     # draw the graph
     gw = GraphWorld()

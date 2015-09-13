@@ -149,10 +149,11 @@ class Graph(dict):
                 ix0 += 1
                 origin = vs[ix0]
             if len(self.out_edges(running)) < d and ix0 != ix1:
+                print 'add edge'
                 self.add_edge(Edge(origin, running))
             if len(self.out_edges(vs[-1])) == d:
-                break
+                return
             ix += 1
-            ix1 = (ix1 + 1) % d
+            ix1 = (ix1 + 1) % n
             print ix0, ix1
         print ix
