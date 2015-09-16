@@ -144,16 +144,53 @@ class Graph(dict):
         origin  = vs[0]
         while ix0 < n and ix < max_steps:
             running = vs[ix1]
-            print len(self.out_edges(running))
+            #print len(self.out_edges(running))
             if len(self.out_edges(origin)) == d:
                 ix0 += 1
                 origin = vs[ix0]
             if len(self.out_edges(running)) < d and ix0 != ix1:
-                print 'add edge'
+                #print 'add edge'
                 self.add_edge(Edge(origin, running))
             if len(self.out_edges(vs[-1])) == d:
                 return
             ix += 1
             ix1 = (ix1 + 1) % n
-            print ix0, ix1
-        print ix
+            #print ix0, ix1
+        #print ix
+        
+    def is_connected(self, safecount=100):
+        """Determine if the graph is connected"""
+        visited = set([])
+        worklist = []
+        worklist.append(self.vertices()[0])
+        cnt = 0
+        while len(worklist) > 0 and cnt < safecount:
+            v = worklist.pop()
+            print "adding", v
+            visited = visited.union(set([v]))
+            worklist = list(set(worklist).
+                            union(set(self.out_vertices(v))).
+                            difference(set(visited)))
+            cnt += 1
+        print len(visited) 
+        print len(self.vertices())
+        return len(visited) == len(self.vertices())
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

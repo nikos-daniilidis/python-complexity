@@ -7,7 +7,10 @@ class RandomGraph(Graph):
     def add_random_edges(self, p):
         """Start with an edgeless graph and add edges at random
         so that there is probability p that there is an edge
-        between any two nodes"""
+        between any two nodes. The algorithm selects a fraction 
+        p of the set of enumerated possible edges of the graph.
+        It then runs two for loops which travel the graph vertices 
+        and add an edge if it is in the random sample."""
         vs = self.vertices()
         n = len(vs)
         combinations = n * (n-1) / 2

@@ -58,13 +58,19 @@ if __name__ == "__main__":
         vs.append(Vertex(alphabet[v]))   
     g = RandomGraph(vs)
     layout = CircleLayout(g)
-    g.add_random_edges(0.7)
+    g.add_random_edges(0.05)
+    
+    # test connectedness of graphs
+    if g.is_connected():
+        print "The graph is connected."
+    else:
+        print "The graph is not connected."
+    print "done"
     
     # draw the graph
     gw = GraphWorld()
     gw.show_graph(g, layout)
     gw.mainloop()
     
-   
-
+    
     
