@@ -166,14 +166,14 @@ class Graph(dict):
         cnt = 0
         while len(worklist) > 0 and cnt < safecount:
             v = worklist.pop()
-            print "adding", v
+            #print "adding", v
             visited = visited.union(set([v]))
             worklist = list(set(worklist).
                             union(set(self.out_vertices(v))).
                             difference(set(visited)))
             cnt += 1
-        print len(visited) 
-        print len(self.vertices())
+        #print len(visited) 
+        #print len(self.vertices())
         return len(visited) == len(self.vertices())
     
     
