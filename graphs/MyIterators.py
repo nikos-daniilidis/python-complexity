@@ -1,7 +1,7 @@
 import  string
 
 class AllTrue(object):
-    """A miniml iterator class that always returns True 
+    """A minimal iterator class that always returns True 
     as next. Example usage: zip('abc', AllTrue())"""
     def next(self):
         return True
