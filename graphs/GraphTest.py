@@ -6,6 +6,14 @@ from GraphWorld import CircleLayout, GraphWorld
 from pprint import pprint
 
 if __name__ == "__main__":
+    v = Vertex(1)
+    w = Vertex(2)
+    e = Edge(v,w)
+    print e
+    g = Graph([v, w], [e])
+    pprint(g, width=1)
+    pass
+    
     v = Vertex('v')
     w = Vertex('w')
     e = Edge(v,w)
