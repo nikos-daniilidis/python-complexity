@@ -1,12 +1,7 @@
 __author__ = "nikos.daniilidis"
-
-""" Based on Code example from Complexity and Computation, a book about
-exploring complexity science with Python.  Available free from
-
-http://greenteapress.com/complexity
-
-Copyright 2011 Allen B. Downey.
-Distributed under the GNU General Public License at gnu.org/licenses/gpl.html.
+""" The idea to implement the Graph class as a dictionary, and the Edge class as a tuple
+is based on: http://greenteapress.com/complexity
+The book thinkcomplexity was used as a guide in developing most of the remaining methods.
 """
 
 from Graph import Graph, Edge
