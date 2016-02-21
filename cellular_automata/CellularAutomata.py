@@ -75,6 +75,7 @@ class BaseCA(object):
         """
         plt.imshow(self.array, cmap='Greys', interpolation='none')
         plt.title("Rule %d" % self.rule)
+        plt.axis("off")
         plt.show()
 
 
@@ -108,6 +109,17 @@ class SingleCA(BaseCA):
 
 class EnsembleCA(BaseCA):
     def __init__(self, rule, time_range, num_blocks=2):
+        """
+        Create an ensemble of cellular automata. The ensemble consists of multiple blocks, each block
+        containing on automaton with the same rule. The blocks are separated by (2*t-2) which means they
+        will not interact with each other as long as the time range (t) and width of each block (w)
+        satisfy w >= (3*t-2)
+        :param rule: rule of the cellular automaton
+        :param time_range: maximum time evolution which can be stored. If you take more time steps than
+                        time_range - 1, the automaton rolls up and continues from time zero
+        :param num_blocks: Number of blocks in the ensemble
+        :return: Nothing
+        """
         width = (3 * time_range - 2) * num_blocks
         super(EnsembleCA, self).__init__(rule, time_range, width)
         self.num_blocks = num_blocks
@@ -134,15 +146,31 @@ class EnsembleCA(BaseCA):
         self.array[0, ] = np.random.random_integers(0, 1, self.width) * filt
         self.next = (self.next + 1) % self.time_range
 
+    def show_overlayed(self):
+        t = self.time_range
+        eyes = np.tile(np.eye(3*t-2), (self.num_blocks, 1))
+        stacked = np.dot(self.array, eyes)
+        fig = plt.imshow(stacked, cmap='Blues', interpolation='none')
+        plt.title("Rule %d" % self.rule)
+        plt.axis('off')
+        fig.axes.get_xaxis().set_visible(False)
+        fig.axes.get_yaxis().set_visible(False)
+        plt.show()
+
+
+class EnigmaticAgent(EnsembleCA):
+    pass
+
+
 if __name__ == "__main__":
-    ca = EnsembleCA(rule=30, time_range=10, num_blocks=4)
+    ca = EnsembleCA(rule=110, time_range=30, num_blocks=1000)
     ca.start_random()
-    for k in range(9):
+    for k in range(29):
         ca.step()
-    ca.show()
+    ca.show_overlayed()
     if False:
         for rl in range(256):
-            ca = CA(rule=rl, time_range=1000, width=2001)
+            ca = SingleCA(rule=rl, time_range=1000, width=2001)
             ca.start_random()
             for k in range(999):
                 ca.step()
