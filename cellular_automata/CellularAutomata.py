@@ -147,6 +147,10 @@ class EnsembleCA(BaseCA):
         self.next = (self.next + 1) % self.time_range
 
     def show_overlayed(self):
+        """
+        Plot an overlay of the automata from all blocks, collapsed into one block.
+        :return: Nothig
+        """
         t = self.time_range
         eyes = np.tile(np.eye(3*t-2), (self.num_blocks, 1))
         stacked = np.dot(self.array, eyes)
@@ -158,16 +162,12 @@ class EnsembleCA(BaseCA):
         plt.show()
 
 
-class EnigmaticAgent(EnsembleCA):
-    pass
-
-
 if __name__ == "__main__":
-    ca = EnsembleCA(rule=110, time_range=30, num_blocks=1000)
+    ca = EnsembleCA(rule=30, time_range=10, num_blocks=3)
     ca.start_random()
-    for k in range(29):
+    for k in range(9):
         ca.step()
-    ca.show_overlayed()
+    ca.show()
     if False:
         for rl in range(256):
             ca = SingleCA(rule=rl, time_range=1000, width=2001)
