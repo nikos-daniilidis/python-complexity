@@ -73,6 +73,12 @@ class ComplexAgent(EnsembleCA):
         return l[:, :len(columns)*t-offset]
 
     def column_sums(self, columns=[0], exclude_last=True):
+        """
+        Return the sums of bits for columns of the agent
+        :param columns: list of int. The indexes of columns to inspect
+        :param exclude_last: boolean. If True, exclude te last column
+        :return: numpy array of size b*len(columns). The sums for each column in columns
+        """
         offset = int(exclude_last)
         b = self.num_blocks
         t = self.time_range
@@ -83,15 +89,26 @@ class ComplexAgent(EnsembleCA):
         return cs  # np.sum(c, axis=1)
 
     def output_sum(self):
+        """
+        Return the sum of the bits in the last row of the agent
+        :return: numpy array of length b. The sums
+        """
         t = self.time_range
         return self.row_bits(rows=[t-1]).sum(axis=1)
 
     def output_balance(self):
+        """
+        Return the balance of the bits in the last row of the agent (more than half full or not)
+        :return: numpy array of length b. The balances.
+        """
         t = self.time_range
-        result = (np.greater(self.output_sum(), (3*t-2)/2.)).astype(float)
-        return result
+        return (np.greater(self.output_sum(), (3*t-2)/2.)).astype(float)
 
     def output_parity(self):
+        """
+        Return the parity of the bits in the last row of the agent (odd or even)
+        :return: numpy array of length b. The parities.
+        """
         return self.output_sum() % 2
 
 
