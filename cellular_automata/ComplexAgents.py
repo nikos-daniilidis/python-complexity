@@ -70,14 +70,15 @@ class ComplexAgent(EnsembleCA):
         :param exclude_last: boolean. If True, do not return the sum for the last column
         :return: numpy array with num_blocks rows and len(columns)*time (or time-1) columns
         """
-        offset = int(exclude_last)
+        start_offset = int(self.bounded)
+        end_offset = int(exclude_last)
         b = self.num_blocks
         t = self.time_range
         a = np.vstack(np.split(self.array, b, axis=1))
         l = np.zeros((b, len(columns)*t))
         for ix, col in enumerate(columns):
-            l[:, ix*t:(ix+1)*t] = np.transpose(a[:, col]).reshape(b, t)
-        return l[:, :len(columns)*t-offset]
+            l[:, ix*t:(ix+1)*t] = np.transpose(a[:, col + start_offset]).reshape(b, t)
+        return l[:, :len(columns)*t-end_offset]
 
     def column_sums(self, columns=[0], exclude_last=True):
         """
@@ -119,8 +120,6 @@ class ComplexAgent(EnsembleCA):
         return self.output_sum() % 2
 
 
-
-
 if __name__=="__main__":
     ca = ComplexAgent(rule=30, time_range=6, num_blocks=10, bounded=True)
     ca.start_random()
@@ -131,7 +130,7 @@ if __name__=="__main__":
     print "row sums", ca.row_sums(rows=[0, 1, 2, 3])
     #cb = ca.column_bits(columns=[0, 1, 2, 3, 4, 5, 6], exclude_last=False)
     #print "column_bits", cb
-    print "column sums", ca.column_sums(columns=[0, 1, 2, 3, 4])
+    print "column sums", ca.column_sums(columns=[0, 1, 2, 3, 4], exclude_last=False)
     print "output sum", ca.output_sum()
     print "output balance", ca.output_balance()
     print "output parity", ca.output_parity()
