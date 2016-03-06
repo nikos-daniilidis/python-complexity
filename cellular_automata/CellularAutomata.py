@@ -108,7 +108,7 @@ class SingleCA(BaseCA):
 
 
 class EnsembleCA(BaseCA):
-    def __init__(self, rule, time_range, num_blocks=2):
+    def __init__(self, rule, time_range, num_blocks=2, bounded=False):
         """
         Create an ensemble of cellular automata. The ensemble consists of multiple blocks, each block
         containing on automaton with the same rule. The blocks are separated by (2*t-2) which means they
@@ -120,9 +120,16 @@ class EnsembleCA(BaseCA):
         :param num_blocks: Number of blocks in the ensemble
         :return: Nothing
         """
-        width = (3 * time_range - 2) * num_blocks
+        self.bounded = bounded
+        if bounded:
+            self.extra_width = 1
+        else:
+            self.extra_width = time_range - 1
+        self.block_width = time_range + 2 * self.extra_width
+        width = self.block_width * num_blocks
         super(EnsembleCA, self).__init__(rule, time_range, width)
         self.num_blocks = num_blocks
+        self.row_filter = self.__row_filter()
 
     def start_single(self):
         """
@@ -130,29 +137,37 @@ class EnsembleCA(BaseCA):
         :return: Nothing
         """
         for b in range(1, self.num_blocks + 1):
-            self.array[0, 3 * (2*b-1) * self.time_range / 2] = 1
+            self.array[0, 1 + (2*b-1) * self.block_width / 2] = 1
         self.next = (self.next + 1) % self.time_range
+
+    def __row_filter(self):
+        filt = np.zeros(self.width)
+        t = self.time_range
+        for b in range(self.num_blocks):
+            filt[self.extra_width + b * self.block_width:
+                 self.extra_width + b * self.block_width +t, ] = np.ones(t)
+        return filt
 
     def start_random(self):
         """
         Initialize each block in the ensemble CA with a random set of cells at time 0.
         :return: Nothing
         """
-        filt = np.zeros(self.width)
-        t = self.time_range
-        for b in range(self.num_blocks):
-            filt[(3*b+1) * t - 2*b - 1:
-                 (3*b+2) * t - 2*b - 1, ] = np.ones(self.time_range)
+        filt = self.__row_filter()
         self.array[0, ] = np.random.random_integers(0, 1, self.width) * filt
         self.next = (self.next + 1) % self.time_range
+
+    def step(self):
+        super(EnsembleCA, self).step()
+        if self.bounded:
+            self.array[self.next-1, :] *= self.row_filter
 
     def show_overlayed(self):
         """
         Plot an overlay of the automata from all blocks, collapsed into one block.
         :return: Nothig
         """
-        t = self.time_range
-        eyes = np.tile(np.eye(3*t-2), (self.num_blocks, 1))
+        eyes = np.tile(np.eye(self.block_width), (self.num_blocks, 1))
         stacked = np.dot(self.array, eyes)
         fig = plt.imshow(stacked, cmap='Blues', interpolation='none')
         plt.title("Rule %d" % self.rule)
@@ -163,11 +178,11 @@ class EnsembleCA(BaseCA):
 
 
 if __name__ == "__main__":
-    ca = EnsembleCA(rule=30, time_range=10, num_blocks=3)
+    ca = EnsembleCA(rule=30, time_range=10, num_blocks=3, bounded=True)
     ca.start_random()
     for k in range(9):
         ca.step()
-    ca.show()
+    ca.show_overlayed()
     if False:
         for rl in range(256):
             ca = SingleCA(rule=rl, time_range=1000, width=2001)

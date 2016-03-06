@@ -13,6 +13,13 @@ class ComplexAgent(EnsembleCA):
     outputs of the complex agent. Typically, the outputs will be derived from the last row of the
     automaton.
     """
+    def __init__(self, rule, time_range, num_blocks=2, bounded=False):
+        super(ComplexAgent, self).__init__(rule, time_range, num_blocks, bounded)
+        if self.bounded:
+            self.active_width = self.time_range
+        else:
+            self.active_width = self.block_width
+
     def row_bits_slow(self, rows=[0]):
         """
         Return the bits for all elements in rows of the agent (slow implementation for large b)
@@ -20,12 +27,12 @@ class ComplexAgent(EnsembleCA):
         :return: numpy array with num_blocks rows and len(rows)*width columns
         """
         t = self.time_range
-        result = np.zeros((self.num_blocks, len(rows) * (3*t-2)))
+        result = np.zeros((self.num_blocks, len(rows) * self.block_width))
         for b in range(self.num_blocks):
-            x = np.zeros((1, len(rows) * (3*t-2)))
+            x = np.zeros((1, len(rows) * self.block_width))
             for row in rows:
-                x[0, row*(3*t-2):(row+1) * (3*t-2)] = \
-                    self.array[row, b*(3*t-2):(b+1)*(3*t-2)]
+                x[0, row*self.block_width:(row+1) * self.block_width] = \
+                    self.array[row, b*self.block_width:(b+1)*self.block_width]
             result[b, ] = x
         return result
 
@@ -37,9 +44,9 @@ class ComplexAgent(EnsembleCA):
         """
         b = self.num_blocks
         t = self.time_range
-        l = np.zeros((b, len(rows)*(3*t-2)))
+        l = np.zeros((b, len(rows)*self.block_width))
         for ix, row in enumerate(rows):
-            l[:, ix*(3*t-2):(ix+1)*(3*t-2)] = self.array[row, :].reshape(b, 3*t-2)
+            l[:, ix*self.block_width:(ix+1)*self.block_width] = self.array[row, :].reshape(b, self.block_width)
         return l
 
     def row_sums(self, rows=[0]):
@@ -53,7 +60,7 @@ class ComplexAgent(EnsembleCA):
         rb = self.row_bits(rows)
         rs = np.zeros((b, len(rows)))
         for ix, row in enumerate(rows):
-            rs[:, ix] = np.sum(rb[:, ix*(3*t-2):(ix+1)*(3*t-2)], axis=1)
+            rs[:, ix] = np.sum(rb[:, ix*self.block_width:(ix+1)*self.block_width], axis=1)
         return rs
 
     def column_bits(self, columns=[0], exclude_last=True):
@@ -102,7 +109,7 @@ class ComplexAgent(EnsembleCA):
         :return: numpy array of length b. The balances.
         """
         t = self.time_range
-        return (np.greater(self.output_sum(), (3*t-2)/2.)).astype(float)
+        return (np.greater(self.output_sum(), self.active_width/2.)).astype(float)
 
     def output_parity(self):
         """
@@ -115,7 +122,7 @@ class ComplexAgent(EnsembleCA):
 
 
 if __name__=="__main__":
-    ca = ComplexAgent(rule=30, time_range=6, num_blocks=10)
+    ca = ComplexAgent(rule=30, time_range=6, num_blocks=10, bounded=True)
     ca.start_random()
     for k in range(5):
         ca.step()
