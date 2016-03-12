@@ -24,6 +24,9 @@ class BaseCA(object):
         self.array = np.zeros((time_range, width), dtype=np.int8)
         self.next = 0
 
+    def get_time_range(self):
+        return self.time_range
+
     def __make_table(self):
         """
         Create a list of length 8 describing the rule of the automaton.
@@ -68,6 +71,13 @@ class BaseCA(object):
             new[ix == j] = v
         self.array[i, ] = new
 
+    def cycle(self):
+        if self.next != 1:
+            raise ValueError("cycle() method called on automaton with more/less than one line.")
+        else:
+            for stp in range(self.time_range-1):
+                self.step()
+
     def show(self):
         """
         Plot the state of the automaton.
@@ -80,7 +90,7 @@ class BaseCA(object):
 
 
 class SingleCA(BaseCA):
-    def __init__(self, rule, time_range, width):
+    def __init__(self, rule, time_range, width, seed=42):
         """
         Create a basic Cellular Automaton. The object stores the state of the automaton for
         a time up to time_range and predetermined width as a numpy array.
@@ -89,6 +99,7 @@ class SingleCA(BaseCA):
         :return: Nothing
         """
         super(SingleCA, self).__init__(rule, time_range, width)
+        self.seed = seed
 
     def start_single(self):
         """
@@ -103,12 +114,13 @@ class SingleCA(BaseCA):
         Initialize the CA with a random set of cells at time 0.
         :return: Nothing
         """
+        np.random.seed(self.seed)
         self.array[0, ] = np.random.random_integers(0, 1, self.width)
         self.next = (self.next + 1) % self.time_range
 
 
 class EnsembleCA(BaseCA):
-    def __init__(self, rule, time_range, num_blocks=2, bounded=False):
+    def __init__(self, rule, time_range, num_blocks=2, bounded=False, seed=42):
         """
         Create an ensemble of cellular automata. The ensemble consists of multiple blocks, each block
         containing on automaton with the same rule. The blocks are separated by (2*t-2) which means they
@@ -130,6 +142,10 @@ class EnsembleCA(BaseCA):
         super(EnsembleCA, self).__init__(rule, time_range, width)
         self.num_blocks = num_blocks
         self.row_filter = self.__row_filter()
+        self.seed = seed
+
+    def get_block_width(self):
+        return self.block_width
 
     def start_single(self):
         """
@@ -145,7 +161,7 @@ class EnsembleCA(BaseCA):
         t = self.time_range
         for b in range(self.num_blocks):
             filt[self.extra_width + b * self.block_width:
-                 self.extra_width + b * self.block_width +t, ] = np.ones(t)
+                 self.extra_width + b * self.block_width + t, ] = np.ones(t)
         return filt
 
     def start_random(self):
@@ -154,6 +170,7 @@ class EnsembleCA(BaseCA):
         :return: Nothing
         """
         filt = self.__row_filter()
+        np.random.seed(self.seed)
         self.array[0, ] = np.random.random_integers(0, 1, self.width) * filt
         self.next = (self.next + 1) % self.time_range
 
@@ -178,14 +195,15 @@ class EnsembleCA(BaseCA):
 
 
 if __name__ == "__main__":
-    ca = EnsembleCA(rule=30, time_range=10, num_blocks=3, bounded=True)
+    ca = EnsembleCA(rule=30, time_range=10, num_blocks=3, bounded=True, seed=444)
     ca.start_random()
     for k in range(9):
         ca.step()
-    ca.show_overlayed()
+    ca.show()
+    #ca.show_overlayed()
     if False:
-        for rl in range(256):
-            ca = SingleCA(rule=rl, time_range=1000, width=2001)
+        for rul in range(256):
+            ca = SingleCA(rule=rul, time_range=1000, width=2001)
             ca.start_random()
             for k in range(999):
                 ca.step()
