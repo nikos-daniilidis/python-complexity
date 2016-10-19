@@ -195,9 +195,9 @@ class EnsembleCA(BaseCA):
 
 
 if __name__ == "__main__":
-    ca = EnsembleCA(rule=30, time_range=10, num_blocks=3, bounded=True, seed=444)
-    ca.start_random()
-    for k in range(9):
+    ca = EnsembleCA(rule=110, time_range=30, num_blocks=3, bounded=False, seed=444)
+    ca.start_single()
+    for k in range(29):
         ca.step()
     ca.show()
     #ca.show_overlayed()
