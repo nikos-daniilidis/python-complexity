@@ -1,5 +1,7 @@
 import numpy as np
 
+__author__ = "nikos.daniilidis"
+
 
 class EventSelector:
     """
@@ -10,7 +12,7 @@ class EventSelector:
     """
     def __init__(self, criterion='single_stream'):
         """
-        Initializatio. Only the criterion is needed here.
+        Initialization. Only the criterion is needed here.
         :param criterion: String. Support for single streams and competing event streams.
         :return: None
         """
