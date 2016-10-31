@@ -26,9 +26,8 @@ class TrainDataUpdater:
         :return:
         """
         assert xold.shape[1] == xnew.shape[1]
-        assert yold.shape[1] == ynew.shape[1]
         assert xold.shape[0] == yold.shape[0]
         if xold.shape[0] == 0:
             return xold, yold
         else:
-            return np.vstack((xold, xnew))[-self.num_events::], np.vstack((yold, ynew))[-self.num_events::]
+            return np.vstack((xold, xnew))[-self.num_events::], np.hstack((yold, ynew))[-self.num_events::]

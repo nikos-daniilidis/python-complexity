@@ -48,7 +48,6 @@ class EventGenerator:
         :return: x, y. Numpy arrays of float/int
         """
         nx = np.random.normal(0., 1., self.num_inputs * num_events)
-        print nx.shape
         x = nx.reshape((num_events, self.num_inputs))
         y = np.greater_equal(np.sum(np.square(x), axis=1), self.cutoff)
         return x, y.astype(int)
