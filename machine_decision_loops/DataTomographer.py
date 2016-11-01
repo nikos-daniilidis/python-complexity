@@ -132,6 +132,7 @@ class DataTomographer:
                 ax = df.plot(x=x, y=y, color=self.colors[ix%len(tr)], label=label, **kwargs)# kind='barh',
             else:
                 ax = df.plot(x=x, y=y, ax=ax, color=self.colors[ix%len(tr)], label=label, **kwargs)
+            plt.plot([0., 1.], [0., 1.], color='k', linestyle='--')
 
         if saveas is not None:
             assert isinstance(saveas, str)

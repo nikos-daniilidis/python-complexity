@@ -7,8 +7,8 @@ from DataTomographer import DataTomographer as DT
 __author__ = "nikos.daniilidis"
 
 def main():
-    seed_events = 500
-    update_events = 100
+    seed_events = 100
+    update_events = 30
 
     eg1 = EG(seed=42, num_inputs=10, kind='chisq', balance=0.5)
     eg2 = EG(seed=13, num_inputs=10, kind='chisq', balance=0.5)
@@ -18,9 +18,9 @@ def main():
     X2, Y2 = eg2.get(seed_events)
     X3, Y3 = eg3.get(seed_events)
 
-    mu1 = MU()
-    mu2 = MU()
-    mu3 = MU()
+    mu1 = MU(kind='gbm')
+    mu2 = MU(kind='gbm')
+    mu3 = MU(kind='gbm')
 
     m1 = mu1.train(X1, Y1, learning_rate=[0.01, 0.03, 0.1], n_estimators=[50, 100, 150, 200, 300],
                    subsample=0.5, max_depth=[2, 3], random_state=13, folds=3)
@@ -30,13 +30,15 @@ def main():
                    subsample=0.5, max_depth=[2, 3], random_state=13, folds=3)
 
     es = ES(criterion='competing_streams')
-    tdu = TDU(num_events=update_events)
+    tdu = TDU(num_events=seed_events)
 
     for chunk in range(10):
+        # create events
         x1r, y1r = eg1.get(update_events)
         x2r, y2r = eg2.get(update_events)
         x3r, y3r = eg3.get(update_events)
 
+        # pass events through current models filter
         xs, ys = es.filter(xs=(x1r, x2r, x3r), ys=(y1r, y2r, y3r),
                            models=(m1, m2, m3), event_gains=(1., 1., 1.))
         x1, x2, x3 = xs
@@ -44,14 +46,13 @@ def main():
         print 'New events at %d:' %chunk
         print x1.shape[0], x2.shape[0], x3.shape[0]
 
+        # update train data
         X1u, Y1u = tdu.update(X1, Y1, x1, y1)
         X2u, Y2u = tdu.update(X2, Y2, x2, y2)
         X3u, Y3u = tdu.update(X3, Y3, x3, y3)
 
-        dt = DT([X1, X2, X3], [Y1, Y2, Y3], [X1u, X2u, X3u], [Y1u, Y2u, Y3u], [m1, m2, m3])
-        file_descriptor = 'seed%d_update%d_' % (seed_events, update_events)
-        dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False, saveas='feature_kl_'+file_descriptor)
-        dt.plot_stagewise(metric='logloss', verbose=False, saveas='stagewise_logloss_'+file_descriptor)
+        # update models using new data
+        m1o, m2o, m3o = m1, m2, m3
 
         m1 = mu1.train(X1u, Y1u, learning_rate=[0.01, 0.03, 0.1], n_estimators=[50, 100, 150, 200, 300],
                        subsample=0.5, max_depth=[2, 3], random_state=13, folds=3)
@@ -60,8 +61,15 @@ def main():
         m3 = mu3.train(X3u, Y3u, learning_rate=[0.01, 0.03, 0.1], n_estimators=[50, 100, 150, 200, 300],
                        subsample=0.5, max_depth=[2, 3], random_state=13, folds=3)
 
+        # create "old" data for next iteration
         X1, X2, X3 = X1u, X2u, X3u
         Y1, Y2, Y3 = Y1u, Y2u, Y3u
+
+        # look at distribution shifts and algorithm performance
+        dt = DT([X1, X2, X3], [Y1, Y2, Y3], [X1u, X2u, X3u], [Y1u, Y2u, Y3u], [m1o, m2o, m3o])
+        file_descriptor = 'seed%d_update%d_' % (seed_events, update_events)
+        dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False, saveas='feature_kl_'+file_descriptor)
+        dt.plot_stagewise(metric='logloss', verbose=False, saveas='stagewise_logloss_'+file_descriptor)
 
 if __name__=='__main__':
     main()
