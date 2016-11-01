@@ -1,3 +1,6 @@
+# Mac
+.DS_Store
+# PyCharm
 .metadata/
 .project
 .pydevproject
@@ -5,3 +8,8 @@
 .idea
 *.xml
 .name
+# Jupyter Notebook
+ipynb
+.ipynb_checkpoints
+# Output
+*.png

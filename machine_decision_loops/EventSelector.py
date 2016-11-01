@@ -54,7 +54,7 @@ class EventSelector:
         ix_keep = np.where(model.predict_proba(x)[:, 0] > threshold)[0]
         return x[ix_keep, ], y[ix_keep, ]
 
-    def __filter_multiple_streams(self, xs, ys, models, event_gains=None):
+    def __filter_multiple_streams(self, xs, ys, models, event_gains=None, verbose=False):
         """
         Filter competing event streams. Events arrive in rounds, one event per stream. At each round,
         a single event from one stream is selected. The critersion is: choose the event with the highest
@@ -79,7 +79,9 @@ class EventSelector:
         for ix, model in enumerate(models):
             ps[:, ix] = event_gains[ix] * model.predict_proba(xs[ix])[:, 0].T
 
-        print 'weighted ps are: ', ps
+        if verbose:
+            print 'weighted ps are: ', ps
+
         ixs = np.argmax(ps, axis=1)  # index of winner for each row in events stream
         xout = []
         yout = []
