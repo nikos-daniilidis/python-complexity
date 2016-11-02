@@ -51,8 +51,11 @@ class EventSelector:
         x = xs[0]
         y = ys[0]
         model = models[0]
-        ix_keep = np.where(model.predict_proba(x)[:, 0] > threshold)[0]
-        return x[ix_keep, ], y[ix_keep, ]
+        if model is None:
+            return x, y
+        else:
+            ix_keep = np.where(model.predict_proba(x)[:, 0] > threshold)[0]
+            return x[ix_keep, ], y[ix_keep, ]
 
     def __filter_multiple_streams(self, xs, ys, models, event_gains=None, verbose=False):
         """
@@ -70,27 +73,30 @@ class EventSelector:
         assert len(xs) == len(models)
         assert len(xs) == len(ys)
         assert self.criterion == 'competing_streams'
-        num_events = ys[0].shape[0]
-        num_streams = len(models)
-        if event_gains is None:
-            event_gains = np.ones(num_streams)
+        if None in models:
+            return xs, ys
+        else:
+            num_events = ys[0].shape[0]
+            num_streams = len(models)
+            if event_gains is None:
+                event_gains = np.ones(num_streams)
 
-        ps = np.zeros((num_events, num_streams))
-        for ix, model in enumerate(models):
-            ps[:, ix] = event_gains[ix] * model.predict_proba(xs[ix])[:, 0].T
+            ps = np.zeros((num_events, num_streams))
+            for ix, model in enumerate(models):
+                ps[:, ix] = event_gains[ix] * model.predict_proba(xs[ix])[:, 0].T
 
-        if verbose:
-            print 'weighted ps are: ', ps
+            if verbose:
+                print 'weighted ps are: ', ps
 
-        ixs = np.argmax(ps, axis=1)  # index of winner for each row in events stream
-        xout = []
-        yout = []
-        for ix, xx in enumerate(xs):
-            xout.append(xs[ix][np.equal(ixs, ix), :])
-            yout.append(ys[ix][np.equal(ixs, ix),])
-            #TODO pout[ix] = ps[...]
+            ixs = np.argmax(ps, axis=1)  # index of winner for each row in events stream
+            xout = []
+            yout = []
+            for ix, xx in enumerate(xs):
+                xout.append(xs[ix][np.equal(ixs, ix), :])
+                yout.append(ys[ix][np.equal(ixs, ix),])
+                #TODO pout[ix] = ps[...]
 
-        return xout, yout
+            return xout, yout
 
 
 class DummyModel:

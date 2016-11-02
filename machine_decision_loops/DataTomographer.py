@@ -123,7 +123,7 @@ class DataTomographer:
         tr, upd = self.stagewise_metric(metric=metric, verbose=verbose)
         for ix, ll_tr in enumerate(tr):
             ll_upd = upd[ix]
-            x, y = 'train_' + metric, 'update_' + metric
+            x, y = 'reference_' + metric, 'update_' + metric
             df = pd.DataFrame({x: ll_tr, y: ll_upd})
             df.sort_values(by=x, inplace=True)
             label = 'Stream ' + str(ix)
@@ -143,6 +143,7 @@ class DataTomographer:
         else:
             plt.show()
             plt.pause(1.0)
+        plt.close()
 
     def plot_kl(self, ntiles=10, rule=None, prior=1e-6, verbose=False, saveas=None, **kwargs):
         """
@@ -179,3 +180,4 @@ class DataTomographer:
         else:
             plt.show()
             plt.pause(1.0)
+        plt.close()

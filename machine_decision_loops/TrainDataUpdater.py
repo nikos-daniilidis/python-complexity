@@ -25,9 +25,12 @@ class TrainDataUpdater:
         :param ynew: numpy array. New labels
         :return:
         """
-        assert xold.shape[1] == xnew.shape[1]
-        assert xold.shape[0] == yold.shape[0]
-        if xold.shape[0] == 0:
-            return xold, yold
+        if xold is None or xnew is None:
+            return xnew, ynew
         else:
-            return np.vstack((xold, xnew))[-self.num_events::], np.hstack((yold, ynew))[-self.num_events::]
+            assert xold.shape[1] == xnew.shape[1]
+            assert xold.shape[0] == yold.shape[0]
+            if xnew.shape[0] == 0:
+                return xold, yold
+            else:
+                return np.vstack((xold, xnew))[-self.num_events::], np.hstack((yold, ynew))[-self.num_events::]
