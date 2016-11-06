@@ -38,7 +38,7 @@ class EventGenerator:
             assert (self.num_inputs % 2 == 0)  # only implemented for even number of inputs
             self.cauchy = cauchy(0., np.sqrt(self.num_inputs)/np.pi)
             self.cutoff = self.cauchy.isf(balance)
-            self.spread = self.cauchy.isf(balance + spread/2.) - self.cauchy.isf(balance - spread/2.)
+            self.spread = self.cauchy.isf(balance - spread/2.) - self.cauchy.isf(balance + spread/2.)
             print 'spread', self.spread
         self.noise = noise
 
