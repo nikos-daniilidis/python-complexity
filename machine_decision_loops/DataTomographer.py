@@ -181,3 +181,84 @@ class DataTomographer:
             plt.show()
             plt.pause(1.0)
         plt.close()
+
+    @staticmethod
+    def __hist_plotter(xx, bns, normed, minimal, ix, jx, ix_vals, jx_vals, saveas_plus, x_axis, **kwargs):
+        """
+        Plot a histogram of xx using preselected bins.
+        :param xx: numpy array. The data to plot as a histogram
+        :param bns: numpy array. The bins for the histogram
+        :param normed: boolean. Normalized histogram
+        :param minimal: boolean. If true, remove all axes and marks from the histogram
+        :param ix: int. If ix is in ix_vals, make a plot, else not
+        :param jx: int. If jx is in jx_vals, make a plot, else not
+        :param ix_vals: list of int.
+        :param jx_vals: list of int.
+        :param saveas_plus: string. String to use in filename for saving the plots
+        :param x_axis: list of float. x axis limits
+        :param kwargs: arguments to pass to matplotlib plot
+        :return: nothing
+        """
+        if (ix in ix_vals) and (jx in jx_vals):
+            plt.hist(xx, bins=bns, normed=normed, **kwargs)
+            if x_axis is not None:
+                ax = plt.gca()
+                ax.set_xlim(x_axis)
+            if minimal:
+                plt.axis('off')
+            else:
+                ttl = 'Stream %d, X%d - reference' % (ix, jx)
+                plt.title(ttl)
+            if saveas_plus is not None:
+                assert isinstance(saveas_plus, str)
+                if '/' in saveas_plus:
+                    saveas_plus = saveas_plus.strip('.').strip('/')
+                name = './figures/' + saveas_plus + str(int(time())) + '.png'
+                plt.savefig(name, bbox_inches='tight')
+                plt.close()
+            else:
+                plt.show()
+                plt.pause(1.0)
+                plt.close()
+
+    def plot_hist(self, ntiles=10, rule=None, saveas=None,
+                  minimal=True, plot_selection=None, x_axis=None,
+                  **kwargs):
+        """
+        Plot histograms for a selection of features from the reference and the new data.
+        :param ntiles: int. Number of bins in the histogram
+        :param rule: string or None. Rule to pass to np.hist for automatic calculation of the bins
+        :param saveas: string. String to use for saving the plots
+        :param minimal: boolean. If true, remove all axes, ticks, etc from the plots
+        :param plot_selection: tuple of lists of int. The features to plot histograms of.
+                            e.g. ([2], [1]) means histograms of feature X1 from stream 2 only
+        :param x_axis: list of float. x axis limits
+        :param kwargs: arguments to pass to matplotlib plot
+        :return: Nothing
+        """
+        assert rule is None or (rule in ('fd', 'auto'))
+        if plot_selection is None:
+            ix_vals = range(len(self.xrefs))
+            jx_vals = range(self.xrefs[0].shape[1])
+        else:
+            ix_vals, jx_vals = plot_selection
+        for ix, xref in enumerate(self.xrefs):  # loop over streams
+            xu = self.xus[ix]
+            for jx in range(xref.shape[1]):  # loop over features in the stream
+                xxref = xref[:, jx]
+                xxu = xu[:, jx]
+                if rule is None:   # find the bin sizes
+                    pre, bns = np.histogram(xxref, bins=ntiles, normed=True)
+                elif rule in ('fd', 'auto'):
+                    pre, bns = np.histogram(xxref, bins=rule, normed=True)
+
+                # plot and save
+                self.__hist_plotter(xxref, bns, normed=True, minimal=minimal,
+                                    ix=ix, jx=jx, ix_vals=ix_vals, jx_vals=jx_vals,
+                                    saveas_plus=saveas + 'stream%d-x%d-reference' % (ix, jx), x_axis=x_axis,
+                                    **kwargs)
+
+                self.__hist_plotter(xxu, bns, normed=True, minimal=minimal,
+                                    ix=ix, jx=jx, ix_vals=ix_vals, jx_vals=jx_vals,
+                                    saveas_plus=saveas + 'stream%d-x%d-new' % (ix, jx), x_axis=x_axis,
+                                    **kwargs)

@@ -1,3 +1,7 @@
+import platform
+if "centos" in platform.platform():
+    import matplotlib
+    matplotlib.use('Agg')
 from EventGenerator import EventGenerator as EG
 from ModelUpdater import ModelUpdater as MU
 from EventSelector import EventSelector as ES
@@ -5,6 +9,7 @@ from TrainDataUpdater import TrainDataUpdater as TDU
 from DataTomographer import DataTomographer as DT
 
 __author__ = "nikos.daniilidis"
+
 
 def main():
     seed_events = 500
@@ -34,7 +39,7 @@ def main():
     x1olda, x2olda, x3olda = None, None, None
     y1olda, y2olda, y3olda = None, None, None
 
-    for chunk in range(10):
+    for chunk in range(12):
         # create stream events
         if chunk == 0:
             events = seed_events
@@ -108,6 +113,8 @@ def main():
                 xus=[x1afnew, x2afnew, x3afnew], yus=[y1afnew, y2afnew, y3afnew],
                 models=[m1, m2, m3])
         file_descriptor = 'seed%d_update%d_' % (seed_events, update_events)
+        dt.plot_hist(ntiles=10, rule='auto', minimal=True, plot_selection=([2], [9]), x_axis=(-3.5, 3.5),
+                     saveas='biased_feature_histogram_', color='b', edgecolor='none', alpha=0.5)
         dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False, saveas='biased_feature_kl_'+file_descriptor)
         dt.plot_stagewise(metric='logloss', verbose=False, saveas='biased_stagewise_logloss_'+file_descriptor)
 
