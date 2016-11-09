@@ -41,37 +41,37 @@ class DataTomographer:
         unseen data.
         :param metric: String. One of 'auc' or 'logloss'
         :param verbose: Boolean. If true, print messages.
-        :return: metrics_tr, metrics_upd. A tuple of lists of numpy arrays with the metric for each stage of the
-                estimator. _tr is on the _train data, upd is on the incoming data stream.
+        :return: metrics_ref, metrics_upd. A tuple of lists of numpy arrays with the metric for each stage of the
+                estimator. _ref is on the _reference data, _upd is on the incoming data stream.
         """
         assert metric in ('auc', 'logloss')
-        metrics_tr, metrics_upd = [], []
+        metrics_ref, metrics_upd = [], []
         for model in self.models:
             n_estimators = model.best_params_['n_estimators']
-            metrics_tr.append(np.zeros(n_estimators))
+            metrics_ref.append(np.zeros(n_estimators))
             metrics_upd.append(np.zeros(n_estimators))
         for ix, model in enumerate(self.models):  # loop through streams
             xref, yref = self.xrefs[ix], self.yrefs[ix]
-            for j, ptr in enumerate(model.best_estimator_.staged_predict_proba(xref)):  # loop through estimator iterations/train
+            for j, pref in enumerate(model.best_estimator_.staged_predict_proba(xref)):  # loop through estimator iterations/train
                 if metric == 'logloss':
-                    metrics_tr[ix][j] = log_loss(yref, ptr)
+                    metrics_ref[ix][j] = log_loss(yref, pref)
                 elif metric == 'auc':
-                    metrics_tr[ix][j] = roc_auc_score(yref, ptr)
+                    metrics_ref[ix][j] = roc_auc_score(yref, pref)
 
             xu, yu = self.xus[ix], self.yus[ix]
             for j, pu in enumerate(model.best_estimator_.staged_predict_proba(xu)):  # loop through estimator iterations/unseen
                 if metric == 'logloss':
                     metrics_upd[ix][j] = log_loss(yu, pu)
                 elif metric == 'auc':
-                    metrics_tr[ix][j] = roc_auc_score(yref, ptr)
+                    metrics_ref[ix][j] = roc_auc_score(yref, pref)
 
         if verbose:
-            print 'Train metrics: '
-            print metrics_tr
+            print 'Reference metrics: '
+            print metrics_ref
             print 'Update metrics: '
             print metrics_upd
 
-        return metrics_tr, metrics_upd
+        return metrics_ref, metrics_upd
 
     def kuhl_leib(self, ntiles=10, rule=None, prior=1e-6, verbose=False):
         """
@@ -120,18 +120,18 @@ class DataTomographer:
         :param kwargs: dict of keyword arguments for the pandas plotting method.
         :return: Nothing. Side effects only :-)
         """
-        tr, upd = self.stagewise_metric(metric=metric, verbose=verbose)
-        for ix, ll_tr in enumerate(tr):
+        ref, upd = self.stagewise_metric(metric=metric, verbose=verbose)
+        for ix, ll_ref in enumerate(ref):
             ll_upd = upd[ix]
             x, y = 'reference_' + metric, 'update_' + metric
-            df = pd.DataFrame({x: ll_tr, y: ll_upd})
+            df = pd.DataFrame({x: ll_ref, y: ll_upd})
             df.sort_values(by=x, inplace=True)
             label = 'Stream ' + str(ix)
             if ix == 0:
 
-                ax = df.plot(x=x, y=y, color=self.colors[ix%len(tr)], label=label, **kwargs)# kind='barh',
+                ax = df.plot(x=x, y=y, color=self.colors[ix%len(ref)], label=label, **kwargs)# kind='barh',
             else:
-                ax = df.plot(x=x, y=y, ax=ax, color=self.colors[ix%len(tr)], label=label, **kwargs)
+                ax = df.plot(x=x, y=y, ax=ax, color=self.colors[ix%len(ref)], label=label, **kwargs)
             plt.plot([0., 1.], [0., 1.], color='k', linestyle='--')
 
         if saveas is not None:
