@@ -1,4 +1,8 @@
 import platform
+import datetime
+import json
+import os
+from time import time
 if "centos" in platform.platform():
     import matplotlib
     matplotlib.use('Agg')
@@ -14,26 +18,66 @@ from DataTomographer import DataTomographer as DT
 __author__ = "nikos.daniilidis"
 
 
+def save_metadata(event_type, seed_events, update_events, analysis_events, ps, seeds, num_inputs,
+                  classifier_kind, criterion, batch_updates, file_descriptor, dirname):
+    """
+    Save the metadata for a run to a json file. See main for parameter explanation.
+    """
+    d = {'event_type': event_type,
+         'seed_events': seed_events,
+         'update_events': update_events,
+         'analysis_events': analysis_events,
+         'ps': ps,
+         'seeds': seeds,
+         'num_inputs': num_inputs,
+         'classifier_kind': classifier_kind,
+         'criterion': criterion,
+         'batch_updates': batch_updates,
+         'file_descriptor': file_descriptor}
+    with open(os.path.join(dirname, file_descriptor+'.json'), 'w') as f:
+        f.write(json.dumps(d, indent=4))
+
+
+def plot_namer(dirname, suffix='.png'):
+    """
+    Minimal utility for formatting plot names.
+    """
+    return lambda fname: os.path.join(dirname, fname + suffix)
+
+
 def main():
-    seed_events = 500
-    update_events = 300
-    analysis_events = 1000
-    p1, p2, p3 = 0.4, 0.5, 0.6
-    assert seed_events >= update_events
+    event_type = 'chisq'  # distribution of the hidden score for each stream
+    seed_events = 500  # number of events to use on the first round of training
+    update_events = 1500  # number of total events occurring in each round of batch update
+    analysis_events = 1000  # number of events to use on each round of analysis
+    ps = [0.5, 0.5, 0.5]  # fraction of class 1 examples in each stream
+    seeds = [42, 13, 79]  # random seeds for each stream
+    gs = [1., 1., 1.]  # gains to use in weighing each stream probability
+    num_inputs = 10  # number of inputs in each stream
+    classifier_kind = 'gbm'  # classifier to use
+    criterion = 'competing_streams'  # type of selection condition
+    batch_updates = 12  # number of batch updates to run for the models
     file_descriptor = 'seed%d_update%d_' % (seed_events, update_events)  # will be used for figure names
+    datetimestr = datetime.datetime.now().strftime("%Y%B%d-%H%M")
+    dirname = event_type + '-' + datetimestr
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    save_metadata(event_type, seed_events, update_events, analysis_events, ps, seeds, num_inputs,
+                  classifier_kind, criterion, batch_updates, file_descriptor, dirname)
+    pn = plot_namer(dirname=dirname)
 
     # EventGenerators
-    eg1 = EG(seed=42, num_inputs=10, kind='chisq', balance=p1)
-    eg2 = EG(seed=13, num_inputs=10, kind='chisq', balance=p2)
-    eg3 = EG(seed=79, num_inputs=10, kind='chisq', balance=p3)
+    eg1 = EG(seed=seeds[0], num_inputs=num_inputs, kind=event_type, balance=ps[0])
+    eg2 = EG(seed=seeds[1], num_inputs=num_inputs, kind=event_type, balance=ps[1])
+    eg3 = EG(seed=seeds[2], num_inputs=num_inputs, kind=event_type, balance=ps[2])
 
     # ModelUpdaters
-    mu1 = MU(kind='gbm')
-    mu2 = MU(kind='gbm')
-    mu3 = MU(kind='gbm')
+    mu1 = MU(kind=classifier_kind)
+    mu2 = MU(kind=classifier_kind)
+    mu3 = MU(kind=classifier_kind)
 
     # EventSelector
-    es = ES(criterion='competing_streams')
+    es = ES(criterion=criterion)
     # TrainDataUpdaters
     tdu = TDU(num_events=seed_events)
     tdua = TDU(num_events=analysis_events)
@@ -49,9 +93,9 @@ def main():
     df_lgls = pd.DataFrame(columns=ll_cols)
     df_kl = pd.DataFrame(columns=kl_cols)
 
-    for chunk in range(12):
+    for batch_update in range(batch_updates):
         # create train stream events
-        if chunk == 0: # on the first iteration use seed events, otherwise use update_event
+        if batch_update == 0:  # on the first iteration use seed events, otherwise use update_event
             events = seed_events
         else:
             events = update_events
@@ -64,22 +108,22 @@ def main():
         x3a, y3a = eg3.get(analysis_events)
 
         # pass events through current models filter
-        if chunk == 0:
+        if batch_update == 0:
             xs, ys = es.filter(xs=(x1r, x2r, x3r), ys=(y1r, y2r, y3r),
-                               models=(None, None, None), event_gains=(p1, p2, p3))
+                               models=(None, None, None), event_gains=ps)
             xsaf, ysaf = es.filter(xs=(x1a, x2a, x3a), ys=(y1a, y2a, y3a),
-                                 models=(None, None, None), event_gains=(p1, p2, p3))
+                                   models=(None, None, None), event_gains=ps)
         else:
             xs, ys = es.filter(xs=(x1r, x2r, x3r), ys=(y1r, y2r, y3r),
-                               models=(m1, m2, m3), event_gains=(p1, p2, p3))
+                               models=(m1, m2, m3), event_gains=ps)
             xsaf, ysaf = es.filter(xs=(x1a, x2a, x3a), ys=(y1a, y2a, y3a),
-                                 models=(m1, m2, m3), event_gains=(p1, p2, p3))
+                                   models=(m1, m2, m3), event_gains=ps)
         x1, x2, x3 = xs
         y1, y2, y3 = ys
         x1af, x2af, x3af = xsaf
         y1af, y2af, y3af = ysaf
         print '---- Event Selector ----'
-        print 'New events at %d:' % chunk
+        print 'New events at %d:' % batch_update
         print x1.shape[0], x2.shape[0], x3.shape[0]
 
         # update train data
@@ -100,13 +144,13 @@ def main():
 
         # lookahead: pass events through updated models filter
         xsaf, ysaf = es.filter(xs=(x1a, x2a, x3a), ys=(y1a, y2a, y3a),
-                               models=(m1, m2, m3), event_gains=(p1, p2, p3))
+                               models=(m1, m2, m3), event_gains=ps)
         x1afnew, x2afnew, x3afnew = xsaf
         y1afnew, y2afnew, y3afnew = ysaf
 
         # look at distribution shifts and algorithm performance
         print '--- Data Tomographer ---'
-        print 'Old model events at %d:' % chunk
+        print 'Old model events at %d:' % batch_update
         print x1af.shape[0], x2af.shape[0], x3af.shape[0]
         print ''
 
@@ -114,25 +158,28 @@ def main():
         dt = DT(xrefs=[x1af, x2af, x3af], yrefs=[y1af, y2af, y3af],
                 xus=[x1a, x2a, x3a], yus=[y1a, y2a, y3a],
                 models=[m1, m2, m3])
-        #dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False, saveas='unbiased_feature_kl_'+file_descriptor)
-        #dt.plot_stagewise(metric='logloss', verbose=False, saveas='unbiased_stagewise_logloss_'+file_descriptor)
+        dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False,
+                   saveas=pn('unbiased_feature_kl_' + file_descriptor + str(int(time()))))
+        dt.plot_stagewise(metric='logloss', verbose=False,
+                          saveas=pn('unbiased_stagewise_logloss_' + file_descriptor + str(int(time()))))
         # question: Does the distribution of data through model converge to some value?
         kls = dt.kuhl_leib(ntiles=10, rule='auto', prior=1e-8, verbose=False)
-        median_kls = [np.median(kl) for kl in kls]
-        df = pd.DataFrame(data=[[chunk] + median_kls], columns=kl_cols)
+        mean_kls = [np.mean(kl) for kl in kls]
+        df = pd.DataFrame(data=[[batch_update] + mean_kls], columns=kl_cols)
         df_kl = df_kl.append(df, ignore_index=True)
 
         # lookahead: old biased data vs new biased data on updated model
         dt = DT(xrefs=[x1af, x2af, x3af], yrefs=[y1af, y2af, y3af],
                 xus=[x1afnew, x2afnew, x3afnew], yus=[y1afnew, y2afnew, y3afnew],
                 models=[m1, m2, m3])
-        #dt.plot_hist(ntiles=10, rule='auto', minimal=True, plot_selection=([2], [9]), x_axis=(-3.5, 3.5),
-        #             saveas='biased_feature_histogram_', color='b', edgecolor='none', alpha=0.5)
-        #dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False, saveas='biased_feature_kl_'+file_descriptor)
-        #dt.plot_stagewise(metric='logloss', verbose=False, saveas='biased_stagewise_logloss_'+file_descriptor)
+        dt.plot_hist(ntiles=10, rule='auto', minimal=True, plot_selection=([2], [9]), x_axis=(-3.5, 3.5),
+                     saveas=pn('biased_feature_histogram_' + str(int(time()))), color='b', edgecolor='none', alpha=0.5)
+        dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False, saveas=pn('biased_feature_kl_'+file_descriptor))
+        dt.plot_stagewise(metric='logloss', verbose=False,
+                          saveas=pn('biased_stagewise_logloss_'+file_descriptor + str(int(time()))))
         # question: Does the logloss on future data converge to some value?
         ll_af, ll_afnew = dt.stagewise_metric(metric='logloss', verbose=False)
-        df = pd.DataFrame(data=[[chunk] + [lls[-1] for lls in ll_afnew]], columns=ll_cols)
+        df = pd.DataFrame(data=[[batch_update] + [lls[-1] for lls in ll_afnew]], columns=ll_cols)
         df_lgls = df_lgls.append(df, ignore_index=True)
 
         # create "old" data for next iteration
@@ -143,12 +190,12 @@ def main():
 
     plt.figure()
     df_kl[kl_cols[1:]].plot()
-    plt.savefig('./figures/median_kl_' + file_descriptor + '.png', bbox_inches='tight')
+    plt.savefig(pn(event_type + 'mean_kl_' + file_descriptor), bbox_inches='tight')
     plt.close()
 
     plt.figure()
     df_lgls[ll_cols[1:]].plot()
-    plt.savefig('./figures/logloss_' + file_descriptor + '.png', bbox_inches='tight')
+    plt.savefig(pn(event_type + 'logloss_' + file_descriptor), bbox_inches='tight')
     plt.close()
 
 

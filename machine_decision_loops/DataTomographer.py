@@ -136,10 +136,10 @@ class DataTomographer:
 
         if saveas is not None:
             assert isinstance(saveas, str)
-            if '/' in saveas:
-                saveas = saveas.strip('.').strip('/')
-            name = './figures/' + saveas + str(int(time())) + '.png'
-            plt.savefig(name, bbox_inches='tight')
+            #if '/' in saveas:
+            #    saveas = saveas.strip('.').strip('/')
+            #name = './figures/' + saveas + str(int(time())) + '.png'
+            plt.savefig(saveas, bbox_inches='tight')
         else:
             plt.show()
             plt.pause(1.0)
@@ -173,10 +173,10 @@ class DataTomographer:
 
         if saveas is not None:
             assert isinstance(saveas, str)
-            if '/' in saveas:
-                saveas = saveas.strip('.').strip('/')
-            name = './figures/' + saveas + str(int(time())) + '.png'
-            plt.savefig(name, bbox_inches='tight')
+            #if '/' in saveas:
+            #    saveas = saveas.strip('.').strip('/')
+            #name = './figures/' + saveas + str(int(time())) + '.png'
+            plt.savefig(saveas, bbox_inches='tight')
         else:
             plt.show()
             plt.pause(1.0)
@@ -211,10 +211,10 @@ class DataTomographer:
                 plt.title(ttl)
             if saveas_plus is not None:
                 assert isinstance(saveas_plus, str)
-                if '/' in saveas_plus:
-                    saveas_plus = saveas_plus.strip('.').strip('/')
-                name = './figures/' + saveas_plus + str(int(time())) + '.png'
-                plt.savefig(name, bbox_inches='tight')
+                #if '/' in saveas_plus:
+                #    saveas_plus = saveas_plus.strip('.').strip('/')
+                #name = './figures/' + saveas_plus + str(int(time())) + '.png'
+                plt.savefig(saveas_plus, bbox_inches='tight')
                 plt.close()
             else:
                 plt.show()
@@ -253,12 +253,13 @@ class DataTomographer:
                     pre, bns = np.histogram(xxref, bins=rule, normed=True)
 
                 # plot and save
+                svas = saveas.split('.pn')[0]
                 self.__hist_plotter(xxref, bns, normed=True, minimal=minimal,
                                     ix=ix, jx=jx, ix_vals=ix_vals, jx_vals=jx_vals,
-                                    saveas_plus=saveas + 'stream%d-x%d-reference' % (ix, jx), x_axis=x_axis,
+                                    saveas_plus=svas + 'stream%d-x%d-reference.png' % (ix, jx), x_axis=x_axis,
                                     **kwargs)
 
                 self.__hist_plotter(xxu, bns, normed=True, minimal=minimal,
                                     ix=ix, jx=jx, ix_vals=ix_vals, jx_vals=jx_vals,
-                                    saveas_plus=saveas + 'stream%d-x%d-new' % (ix, jx), x_axis=x_axis,
+                                    saveas_plus=svas + 'stream%d-x%d-new.png' % (ix, jx), x_axis=x_axis,
                                     **kwargs)
