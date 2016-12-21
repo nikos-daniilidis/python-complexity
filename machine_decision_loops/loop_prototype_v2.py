@@ -19,7 +19,7 @@ __author__ = "nikos.daniilidis"
 
 
 def save_metadata(event_types, seed_events, update_events, analysis_events, ps, seeds, num_inputs,
-                  classifier_kind, criterion, batch_updates, file_descriptor, dirname):
+                  classifier_kind, criterion, batch_updates, file_descriptor, dirname, note, readme):
     """
     Save the metadata for a run to a json file. See main for parameter explanation.
     """
@@ -33,7 +33,9 @@ def save_metadata(event_types, seed_events, update_events, analysis_events, ps, 
          'classifier_kind': classifier_kind,
          'criterion': criterion,
          'batch_updates': batch_updates,
-         'file_descriptor': file_descriptor}
+         'file_descriptor': file_descriptor,
+         'note': note,
+         'readme': readme}
     with open(os.path.join(dirname, file_descriptor+'.json'), 'w') as f:
         f.write(json.dumps(d, indent=4))
 
@@ -46,6 +48,8 @@ def plot_namer(dirname, suffix='.png'):
 
 
 def main():
+    note = 'test'
+    readme = '''Test basic functionality'''
     event_types = ['chisq', 'chisq', 'chisq']  # distribution of the hidden score for each stream
     seed_events = 500  # number of events to use on the first round of training
     update_events = 1500  # number of total events occurring in each round of batch update
@@ -56,24 +60,24 @@ def main():
     num_inputs = 10  # number of inputs in each stream
     classifier_kinds = ['gbm', 'gbm', 'gbm']  # classifier to use
     criterion = 'competing_streams'  # type of selection condition
-    batch_updates = 12  # number of batch updates to run for the models
+    batch_updates = 2  # number of batch updates to run for the models
     file_descriptor = 'seed%d_update%d_' % (seed_events, update_events)  # will be used for figure names
     datetimestr = datetime.datetime.now().strftime("%Y%B%d-%H%M")
-    dirname = str(len(event_types)) + '_streams-' + '-' + datetimestr
+    dirname = str(len(event_types)) + '_streams-' + note + '-' + datetimestr
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     save_metadata(event_types, seed_events, update_events, analysis_events, ps, seeds, num_inputs,
-                  classifier_kinds, criterion, batch_updates, file_descriptor, dirname)
+                  classifier_kinds, criterion, batch_updates, file_descriptor, dirname, note, readme)
     pn = plot_namer(dirname=dirname)
 
     # EventGenerators
     egs = []
-    for ix, event_type in event_types:
+    for ix, event_type in enumerate(event_types):
         egs.append(EG(seed=seeds[ix], num_inputs=num_inputs, kind=event_type, balance=ps[ix]))
 
     # ModelUpdaters
     mus = []
-    for ix, classifier_kind in classifier_kinds:
+    for ix, classifier_kind in enumerate(classifier_kinds):
         mus.append(MU(kind=classifier_kind))
 
     # EventSelector
@@ -82,14 +86,15 @@ def main():
     tdu = TDU(num_events=seed_events)
     tdua = TDU(num_events=analysis_events)
 
+    nones = [None for e in event_types]
     xolds = [None for e in event_types]
     yolds = [None for e in event_types]
     xold_ans = [None for e in event_types]
     yold_ans = [None for e in event_types]
 
     # global behavior: optimal logloss, and KL distributions at each batch update
-    ll_cols = ['update_index'] + ['logloss_S%d' % ix for ix, e in event_types]
-    kl_cols = ['update_index'] + ['KL_S%d' % ix for ix, e in event_types]
+    ll_cols = ['update_index'] + ['logloss_S%d' % ix for ix, e in enumerate(event_types)]
+    kl_cols = ['update_index'] + ['KL_S%d' % ix for ix, e in enumerate(event_types)]
     df_lgls = pd.DataFrame(columns=ll_cols)
     df_kl = pd.DataFrame(columns=kl_cols)
 
@@ -114,13 +119,13 @@ def main():
         # pass events through current models filter
         if batch_update == 0:
             xs, ys = es.filter(xs=xrs, ys=yrs,
-                               models=[None for mu in mus], event_gains=gs)
-            xsaf, ysaf = es.filter(x=xas, ys=yas,
-                                   models=[None for mu in mus], event_gains=gs)
+                               models=nones, event_gains=gs)
+            xafs, yafs = es.filter(xs=xas, ys=yas,
+                                   models=nones, event_gains=gs)
         else:
             xs, ys = es.filter(xs=xrs, ys=yrs,
                                models=ms, event_gains=gs)
-            xsaf, ysaf = es.filter(xs=xas, ys=yas,
+            xafs, yafs = es.filter(xs=xas, ys=yas,
                                    models=ms, event_gains=gs)
         msg = ''
         for xi in xs:
@@ -129,43 +134,49 @@ def main():
         print 'New events at %d:' % batch_update
         print msg
 
-        #######################################################################################################333
         # update train data
-        X1u, Y1u = tdu.update(x1old, y1old, x1, y1)
-        X2u, Y2u = tdu.update(x2old, y2old, x2, y2)
-        X3u, Y3u = tdu.update(x3old, y3old, x3, y3)
-        X1ua, Y1ua = tdua.update(x1old_an, y1old_an, x1af, y1af)
-        X2ua, Y2ua = tdua.update(x2old_an, y2old_an, x2af, y2af)
-        X3ua, Y3ua = tdua.update(x3old_an, y3old_an, x3af, y3af)
+        Xus, Yus = [], []
+        for ix, x in enumerate(xs):
+            Xi, Yi = tdu.update(xolds[ix], yolds[ix], xs[ix], ys[ix])
+            Xus.append(Xi)
+            Yus.append(Yi)
+        # update analysis data
+        Xuas, Yuas = [], []
+        for ix, x in enumerate(xafs):
+            Xi, Yi = tdu.update(xold_ans[ix], yold_ans[ix], xafs[ix], yafs[ix])
+            Xuas.append(Xi)
+            Yuas.append(Yi)
 
         # update models using new data
-        m1 = mu1.train(X1u, Y1u, learning_rate=[0.005, 0.01, 0.03, 0.06, 0.1], n_estimators=[250],
-                       subsample=0.5, max_depth=[2, 3], random_state=13, folds=5)
-        m2 = mu2.train(X2u, Y2u, learning_rate=[0.005, 0.01, 0.03, 0.06, 0.1], n_estimators=[250],
-                       subsample=0.5, max_depth=[2, 3], random_state=13, folds=5)
-        m3 = mu3.train(X3u, Y3u, learning_rate=[0.005, 0.01, 0.03, 0.06, 0.1], n_estimators=[250],
-                       subsample=0.5, max_depth=[2, 3], random_state=13, folds=5)
+        ms = []
+        for ix, mu in enumerate(mus):
+            ms.append(mu.train(Xus[ix], Yus[ix], learning_rate=[0.005, 0.01, 0.03, 0.06, 0.1], n_estimators=[250],
+                               subsample=0.5, max_depth=[2, 3], random_state=13, folds=5))
 
         # lookahead: pass events through updated models filter
-        xsaf, ysaf = es.filter(xs=(x1a, x2a, x3a), ys=(y1a, y2a, y3a),
-                               models=(m1, m2, m3), event_gains=ps)
-        x1afnew, x2afnew, x3afnew = xsaf
-        y1afnew, y2afnew, y3afnew = ysaf
+        xafs, yafs = es.filter(xs=xas, ys=yas,
+                               models=ms, event_gains=gs)
+        xafnews = xafs
+        yafnews = yafs
 
         # look at distribution shifts and algorithm performance
+        msg = ''
+        for x in xafs:
+            msg += str(x.shape[0]) + ' '
         print '--- Data Tomographer ---'
         print 'Old model events at %d:' % batch_update
-        print x1af.shape[0], x2af.shape[0], x3af.shape[0]
+        print msg
         print ''
 
         # unbiased data vs old biased data on updated model
-        dt = DT(xrefs=[x1af, x2af, x3af], yrefs=[y1af, y2af, y3af],
-                xus=[x1a, x2a, x3a], yus=[y1a, y2a, y3a],
-                models=[m1, m2, m3])
+        dt = DT(xrefs=xafs, yrefs=yafs,
+                xus=xas, yus=yas,
+                models=ms)
         dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False,
                    saveas=pn('unbiased_feature_kl_' + file_descriptor + str(int(time()))))
         dt.plot_stagewise(metric='logloss', verbose=False,
                           saveas=pn('unbiased_stagewise_logloss_' + file_descriptor + str(int(time()))))
+
         # question: Does the distribution of data through model converge to some value?
         kls = dt.kuhl_leib(ntiles=10, rule='auto', prior=1e-8, verbose=False)
         mean_kls = [np.mean(kl) for kl in kls]
@@ -173,24 +184,26 @@ def main():
         df_kl = df_kl.append(df, ignore_index=True)
 
         # lookahead: old biased data vs new biased data on updated model
-        dt = DT(xrefs=[x1af, x2af, x3af], yrefs=[y1af, y2af, y3af],
-                xus=[x1afnew, x2afnew, x3afnew], yus=[y1afnew, y2afnew, y3afnew],
-                models=[m1, m2, m3])
+        dt = DT(xrefs=xafs, yrefs=yafs,
+                xus=xafnews, yus=yafnews,
+                models=ms)
         dt.plot_hist(ntiles=10, rule='auto', minimal=True, plot_selection=([2], [9]), x_axis=(-3.5, 3.5),
                      saveas=pn('biased_feature_histogram_' + str(int(time()))), color='b', edgecolor='none', alpha=0.5)
         dt.plot_kl(ntiles=10, rule='auto', prior=1e-8, verbose=False, saveas=pn('biased_feature_kl_'+file_descriptor))
         dt.plot_stagewise(metric='logloss', verbose=False,
                           saveas=pn('biased_stagewise_logloss_'+file_descriptor + str(int(time()))))
+
         # question: Does the logloss on future data converge to some value?
         ll_af, ll_afnew = dt.stagewise_metric(metric='logloss', verbose=False)
         df = pd.DataFrame(data=[[batch_update] + [lls[-1] for lls in ll_afnew]], columns=ll_cols)
         df_lgls = df_lgls.append(df, ignore_index=True)
 
         # create "old" data for next iteration
-        x1old, x2old, x3old = X1u, X2u, X3u
-        y1old, y2old, y3old = Y1u, Y2u, Y3u
-        x1old_an, x2old_an, x3old_an = X1ua, X2ua, X3ua
-        y1old_an, y2old_an, y3old_an = Y1ua, Y2ua, Y3ua
+        xolds = Xus
+        yolds = Yus
+
+        xold_ans = Xuas
+        yold_ans = Yuas
 
     plt.figure()
     df_kl[kl_cols[1:]].plot()
