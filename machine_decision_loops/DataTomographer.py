@@ -17,8 +17,8 @@ class DataTomographer:
     def __init__(self, xrefs, yrefs, xus, yus, models=None):
         """
         Initialize the class.
-        :param xrefs: List of numpy array. The train data Xs for the last model update for each stream.
-        :param yrefs: List of numpy array. The train data labels for the last model update for each stream.
+        :param xrefs: List of numpy array. The train data Xs reference for each stream.
+        :param yrefs: List of numpy array. The train data labels reference for each stream.
         :param xus: List of numpy array. The incoming data Xs for each stream.
         :param yus: List of numpy array. The incoming data labels for each stream.
         :param models: List of trained classifier models. One for each stream.
@@ -33,7 +33,9 @@ class DataTomographer:
         self.xus = xus
         self.yus = yus
         self.models = models
-        self.colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']  # for plotting
+        self.colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'darkred', 'salmon', 'gold', 'dimgrey',
+                       'palegreen', 'darkegreen', 'saddlebrown', 'darkviolet', 'plum', 'indigo',
+                       'darkkhaki']  # for plotting
 
     def stagewise_metric(self, metric='logloss', verbose=False):
         """
@@ -50,20 +52,31 @@ class DataTomographer:
             n_estimators = model.best_params_['n_estimators']
             metrics_ref.append(np.zeros(n_estimators))
             metrics_upd.append(np.zeros(n_estimators))
-        for ix, model in enumerate(self.models):  # loop through streams
+        for ix, model in enumerate(self.models):  # loop through streams - reference
             xref, yref = self.xrefs[ix], self.yrefs[ix]
+            if xref.shape[0] == 0:
+                for j in range(model.best_params_['n_estimators']):
+                    metrics_ref[ix][j] = np.nan
+                break
             for j, pref in enumerate(model.best_estimator_.staged_predict_proba(xref)):  # loop through estimator iterations/train
                 if metric == 'logloss':
-                    metrics_ref[ix][j] = log_loss(yref, pref)
+                    metrics_ref[ix][j] = log_loss(yref, pref, labels=(0, 1))
                 elif metric == 'auc':
                     metrics_ref[ix][j] = roc_auc_score(yref, pref)
 
+        for ix, model in enumerate(self.models):  # loop through streams
             xu, yu = self.xus[ix], self.yus[ix]
+            if xu.shape[0] == 0:
+                for j in range(model.best_params_['n_estimators']):
+                    metrics_ref[ix][j] = np.nan
+                break
             for j, pu in enumerate(model.best_estimator_.staged_predict_proba(xu)):  # loop through estimator iterations/unseen
                 if metric == 'logloss':
-                    metrics_upd[ix][j] = log_loss(yu, pu)
+                    metrics_upd[ix][j] = log_loss(yu, pu, labels=(0, 1))
                 elif metric == 'auc':
-                    metrics_ref[ix][j] = roc_auc_score(yref, pref)
+                    metrics_upd[ix][j] = roc_auc_score(yu, pu)
+                else:
+                    metrics_upd[ix][j] = np.nan
 
         if verbose:
             print 'Reference metrics: '
@@ -89,14 +102,19 @@ class DataTomographer:
             stream_kl = np.zeros(xref.shape[1])   # the KL divergences for all features in the current stream (ix)
             xu = self.xus[ix]
             for jx in range(xref.shape[1]):  # loop over features in the stream
+                # print xu.shape
+                # print ix, jx
                 xxref = xref[:, jx]
                 xxu = xu[:, jx]
-                if rule is None:
+                if rule is None and xxu.shape[0] > 0:
                     pre, bns = np.histogram(xxref, bins=ntiles, normed=True)
                     pst, bns = np.histogram(xxu, bns, normed=True)
-                elif rule in ('fd', 'auto'):
+                elif rule in ('fd', 'auto') and xxu.shape[0] > 0:
                     pre, bns = np.histogram(xxref, bins=rule, normed=True)
                     pst, bns = np.histogram(xxu, bns, normed=True)
+                elif xxu.shape[0] == 0:
+                    stream_kl[jx] = np.nan
+                    break
                 pst[pst < prior] = prior
                 stream_kl[jx] = stats.entropy(pre, pst)
                 if verbose and stream_kl[jx] == np.inf:
@@ -128,8 +146,7 @@ class DataTomographer:
             df.sort_values(by=x, inplace=True)
             label = 'Stream ' + str(ix)
             if ix == 0:
-
-                ax = df.plot(x=x, y=y, color=self.colors[ix%len(ref)], label=label, **kwargs)# kind='barh',
+                ax = df.plot(x=x, y=y, color=self.colors[ix%len(ref)], label=label, **kwargs)
             else:
                 ax = df.plot(x=x, y=y, ax=ax, color=self.colors[ix%len(ref)], label=label, **kwargs)
             plt.plot([0., 1.], [0., 1.], color='k', linestyle='--')
@@ -244,7 +261,11 @@ class DataTomographer:
             ix_vals, jx_vals = plot_selection
         for ix, xref in enumerate(self.xrefs):  # loop over streams
             xu = self.xus[ix]
+            if xu.shape[0] == 0:
+                break
             for jx in range(xref.shape[1]):  # loop over features in the stream
+                # print xu.shape
+                # print ix, jx
                 xxref = xref[:, jx]
                 xxu = xu[:, jx]
                 if rule is None:   # find the bin sizes

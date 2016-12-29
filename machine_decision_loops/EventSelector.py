@@ -73,11 +73,12 @@ class EventSelector:
         assert len(xs) == len(models)
         assert len(xs) == len(ys)
         assert self.criterion == 'competing_streams'
+        num_events = ys[0].shape[0]
+        num_streams = len(models)
         if None in models:
-            return xs, ys
+            ixs = np.random.choice(np.arange(num_streams), num_events, replace=True)
+            # return xs, ys # changing criterion under null model to be a random choice of indices
         else:
-            num_events = ys[0].shape[0]
-            num_streams = len(models)
             if event_gains is None:
                 event_gains = np.ones(num_streams)
 
@@ -85,18 +86,24 @@ class EventSelector:
             for ix, model in enumerate(models):
                 ps[:, ix] = event_gains[ix] * model.predict_proba(xs[ix])[:, 0].T
 
-            if verbose:
-                print 'weighted ps are: ', ps
-
             ixs = np.argmax(ps, axis=1)  # index of winner for each row in events stream
-            xout = []
-            yout = []
-            for ix, xx in enumerate(xs):
-                xout.append(xs[ix][np.equal(ixs, ix), :])
-                yout.append(ys[ix][np.equal(ixs, ix),])
-                #TODO pout[ix] = ps[...]
 
-            return xout, yout
+        xlst = []
+        ylst = []
+        for ix, xx in enumerate(xs):
+            xlst.append(xs[ix][np.equal(ixs, ix), :])
+            ylst.append(ys[ix][np.equal(ixs, ix),])
+            #TODO pout[ix] = ps[...]
+
+        if verbose:
+            print 'weighted ps are: ', ps
+            print 'selected indices are: ', ixs
+            print 'selected labels are: ', ylst
+
+        return xlst, ylst
+        #xout = np.vstack(xlst)
+        #yout = np.concatenate(ylst)
+        #return xout, yout
 
 
 class DummyModel:
@@ -149,9 +156,11 @@ if __name__ == "__main__":
 
     print('Multiple streams-no cutoff example:')
     print('Inputs: ')
-    print x1, y1, x2, y2
+    print x1, y1
+    print x2, y2
     print ('Scores: ')
-    print dm.predict_proba(x1), dm.predict_proba(x2)
+    print dm.predict_proba(x1)
+    print dm.predict_proba(x2)
     xs, ys = es2.filter([x1, x2], [y1, y2], [dm, dm], event_gains=[1., 3.])
     print('Outputs: ')
     print xs, ys,

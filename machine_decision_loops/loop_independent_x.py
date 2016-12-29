@@ -48,19 +48,19 @@ def plot_namer(dirname, suffix='.png'):
 
 
 def main():
-    note = 'test'
-    readme = '''Test basic functionality'''
-    event_types = ['chisq', 'chisq', 'chisq']  # distribution of the hidden score for each stream
-    seed_events = 500  # number of events to use on the first round of training
-    update_events = 1500  # number of total events occurring in each round of batch update
-    analysis_events = 1000  # number of events to use on each round of analysis
-    ps = [0.4, 0.5, 0.6]  # fraction of class 1 examples in each stream
-    seeds = [42, 13, 79]  # random seeds for each stream
-    gs = [1., 1., 1.]  # gains to use in weighing each stream probability
-    num_inputs = 10  # number of inputs in each stream
-    classifier_kinds = ['gbm', 'gbm', 'gbm']  # classifier to use
+    note = 'parallel'
+    readme = '''Ten parallel streams, all chisq, different balances, same weights'''
+    event_types = 10 * ['chisq']  # distribution of the hidden score for each stream
+    seed_events = 1000  # number of events to use on the first round of training
+    update_events = 6000  # number of total events occurring in each round of batch update
+    analysis_events = 6000  # number of events to use on each round of analysis
+    ps = [0.47, 0.47, 0.48, 0.49, 0.50, 0.50,  0.51, 0.52, 0.53, 0.53]  # fraction of class 1 examples in each stream
+    seeds = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18]  # random seeds for each stream
+    gs = 10 * [1.]  # gains to use in weighing each stream probability
+    num_inputs = 30  # number of inputs in each stream
+    classifier_kinds = 10 * ['gbm']  # classifier to use
     criterion = 'competing_streams'  # type of selection condition
-    batch_updates = 2  # number of batch updates to run for the models
+    batch_updates = 30  # number of batch updates to run for the models
     file_descriptor = 'seed%d_update%d_' % (seed_events, update_events)  # will be used for figure names
     datetimestr = datetime.datetime.now().strftime("%Y%B%d-%H%M")
     dirname = str(len(event_types)) + '_streams-' + note + '-' + datetimestr
@@ -106,13 +106,13 @@ def main():
         # create train stream events
         xrs, yrs = [], []
         for eg in egs:
-            xi, yi = eg.get(events)
+            xi, yi = eg.get_labeled(events)
             xrs.append(xi)
             yrs.append(yi)
         # create analysis stream events
         xas, yas = [], []
         for eg in egs:
-            xi, yi = eg.get(events)
+            xi, yi = eg.get_labeled(events)
             xas.append(xi)
             yas.append(yi)
 
@@ -127,10 +127,11 @@ def main():
                                models=ms, event_gains=gs)
             xafs, yafs = es.filter(xs=xas, ys=yas,
                                    models=ms, event_gains=gs)
+            #print yafs[-1]
         msg = ''
-        for xi in xs:
-            msg += str(xi.shape[0]) + ' '
-        print '---- Event Selector ----'
+        for ix, xi in enumerate(xs):
+            msg += str(xi.shape[0]) + '(%3.2f) ' % (1.*sum(ys[ix])/(xi.shape[0]+1e-8))
+        print '---- Event Selector (balance in parentheses)----'
         print 'New events at %d:' % batch_update
         print msg
 
@@ -152,18 +153,19 @@ def main():
         for ix, mu in enumerate(mus):
             ms.append(mu.train(Xus[ix], Yus[ix], learning_rate=[0.005, 0.01, 0.03, 0.06, 0.1], n_estimators=[250],
                                subsample=0.5, max_depth=[2, 3], random_state=13, folds=5))
+            print ms[ix].best_params_
 
         # lookahead: pass events through updated models filter
-        xafs, yafs = es.filter(xs=xas, ys=yas,
-                               models=ms, event_gains=gs)
-        xafnews = xafs
-        yafnews = yafs
+        xafnews, yafnews = es.filter(xs=xas, ys=yas,
+                                     models=ms, event_gains=gs)
+        #xafnews = xafs
+        #yafnews = yafs
 
         # look at distribution shifts and algorithm performance
         msg = ''
-        for x in xafs:
-            msg += str(x.shape[0]) + ' '
-        print '--- Data Tomographer ---'
+        for ix, x in enumerate(xafs):
+            msg += str(x.shape[0]) + '(%3.2f) ' % (1.*sum(yafs[ix])/(x.shape[0]+1e-8))
+        print '--- Data Tomographer (balance in parentheses) ---'
         print 'Old model events at %d:' % batch_update
         print msg
         print ''

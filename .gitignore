@@ -13,3 +13,5 @@ ipynb
 .ipynb_checkpoints
 # Output
 *.png
+# ignored files
+ignore
