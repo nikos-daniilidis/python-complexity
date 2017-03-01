@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.stats import chi2, cauchy
+from scipy.stats import chi2, cauchy, norm
 
 __author__ = "nikos.daniilidis"
 
@@ -10,7 +10,7 @@ class EventGenerator:
     properties are implemented
     """
     def __init__(self, seed=42, num_inputs=11, kind='chisq', used_features=0.8,
-                 balance=0.5, noise='gauss', spread=0.1):
+                 balance=0.5, noise='gauss', spread=0.1, verbose=False):
         """
         Initialize the instance
         :param seed: Int. The seed for the numpy random state.
@@ -20,11 +20,12 @@ class EventGenerator:
         :param balance: Float between 0. and 1.0. Fraction of the 0 class in the event stream
         :param noise: String. One of gaussian, uniform
         :param spread: Float. Spread of the noise in terms of percentiles of the
+        :param verbose: Boolean. Print stuff if true
         :return:
         """
         assert isinstance(seed, int)
         assert isinstance(num_inputs, int)
-        assert kind in ('chisq', 'cauchy')
+        assert kind in ('gauss', 'chisq', 'cauchy')
         assert noise in ('gauss', 'uniform')
         assert isinstance(balance, float)
         assert (balance >= 0.) and (balance <= 1.)
@@ -33,20 +34,31 @@ class EventGenerator:
         self.used_indices = np.random.choice(range(num_inputs),
                                              size=2*int(round(num_inputs*used_features/2.)),
                                              replace=False)
+        self.numerator_indices = None  # only used when type is 'cauchy'
+        self.denumerator_indices = None  # only used when type is 'cauchy'
+        self.coefficients = None  # only used when type is 'gauss'
         self.used_inputs = len(self.used_indices)
         self.num_inputs = num_inputs
         assert (self.used_inputs <= self.num_inputs)
         self.kind = kind
-        if kind == 'chisq':
+        if kind == 'gauss':
+            self.coefficients = 2.*np.random.random(size=self.used_inputs) - 1.  # range is [-1, 1]
+            sigma = np.sqrt(np.sum(np.power(self.coefficients, 2)))
+            self.spread = sigma*(norm.isf(spread/2.) - norm.isf(-spread/2.))
+            self.cutoff = sigma*norm.isf(balance)
+        elif kind == 'chisq':
             self.cutoff = chi2.isf(balance, df=self.used_inputs)
             self.spread = (chi2.isf(balance + spread/2., df=self.used_inputs) -
                            chi2.isf(balance - spread/2., df=self.used_inputs))
         elif kind == 'cauchy':
+            self.numerator_indices = self.used_indices[:self.used_inputs/2]
+            self.denumerator_indices = self.used_indices[self.used_inputs/2:]
             assert (self.used_inputs % 2 == 0)  # only implemented for even number of inputs
             self.cauchy = cauchy(0., np.sqrt(self.used_inputs)/np.pi)
             self.cutoff = self.cauchy.isf(balance)
             self.spread = self.cauchy.isf(balance - spread/2.) - self.cauchy.isf(balance + spread/2.)
-            print 'spread', self.spread
+            if verbose:
+                print 'spread', self.spread
         self.noise = noise
 
     def get_labeled(self, num_events=100):
@@ -55,7 +67,9 @@ class EventGenerator:
         :param num_events: Int. Number of events to generate
         :return: x, y. Numpy arrays of float/int
         """
-        if self.kind == "chisq":
+        if self.kind == "gauss":
+            return self.__get_gauss(num_events)
+        elif self.kind == "chisq":
             return self.__get_chisq(num_events)
         elif self.kind == "cauchy":
             return self.__get_cauchy(num_events)
@@ -87,7 +101,9 @@ class EventGenerator:
         :param noise: Numpy array of float with dimensions (num_events,).
         :return: x, y. Numpy arrays of float/int.
         """
-        if self.kind == "chisq":
+        if self.kind == "gauss":
+            return self.__label_gauss(x, noise)
+        elif self.kind == "chisq":
             return self.__label_chisq(x, noise)
         elif self.kind == "cauchy":
             return self.__label_cauchy(x, noise)
@@ -104,6 +120,31 @@ class EventGenerator:
             return np.random.uniform(-self.spread/2., self.spread/2., num_events)
         else:
             return np.zeros(num_events)
+
+    def __label_gauss(self, x, noise):
+        """
+        Label a stream of gaussian type events. The class is the condition: sum of coefficients*inputs >= threshold.
+        :param x: Numpy array of float with dimensions (num_events, num_inputs).
+        :param noise: Numpy array of float with dimensions (num_events,).
+        :return: x, y. Numpy arrays of float/int.
+        """
+        # TODO: Add assertions to check sizes
+        y = np.greater_equal(
+            np.inner(x[:, self.used_indices], self.coefficients),
+            self.cutoff + noise)
+        return x, y.astype(int)
+
+    def __get_gauss(self, num_events):
+        """
+        Generate a number of gauss type events.
+        The inputs are drawn from iid gaussian distributions.
+        The class is the condition: sum of coefficients*inputs >= threshold.
+        :param num_events:  Int. Number of events to generate
+        :return: x, y. Numpy arrays of float/int
+        """
+        x = self.get_unlabeled(num_events)
+        noise = self.__get_noise(num_events)
+        return self.__label_gauss(x, noise)
 
     def __label_chisq(self, x, noise):
         """
@@ -160,6 +201,10 @@ class EventGenerator:
 
 
 def basic_checks():
+    eg = EventGenerator(seed=42, num_inputs=10, kind='gauss', balance=0.5, noise='gauss', spread=0.1)
+    x, y = eg.get_labeled(10000)
+    print 'gauss at 0.5 ->', np.mean(y)
+
     eg = EventGenerator(seed=42, num_inputs=10, kind='chisq', balance=0.5, noise='gauss', spread=0.1)
     x, y = eg.get_labeled(10000)
     print 'chisq at 0.5 ->', np.mean(y)
@@ -167,6 +212,10 @@ def basic_checks():
     eg = EventGenerator(seed=42, num_inputs=10, kind='cauchy', balance=0.5, noise='gauss', spread=0.1)
     x, y = eg.get_labeled(10000)
     print 'cauchy at 0.5 ->', np.mean(y)
+
+    eg = EventGenerator(seed=42, num_inputs=10, kind='gauss', balance=0.3, noise='gauss', spread=0.1)
+    x, y = eg.get_labeled(10000)
+    print 'gauss at 0.3 ->', np.mean(y)
 
     eg = EventGenerator(seed=42, num_inputs=10, kind='chisq', balance=0.3, noise='gauss', spread=0.1)
     x, y = eg.get_labeled(10000)

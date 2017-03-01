@@ -1,9 +1,12 @@
+import platform
 import numpy as np
 import scipy.stats as stats
 from sklearn.metrics import log_loss, roc_auc_score
 import pandas as pd
+if "centos" in platform.platform():
+    import matplotlib
+    matplotlib.use('Agg')
 from matplotlib import pyplot as plt
-from time import time
 
 __author__ = "nikos.daniilidis"
 
@@ -49,7 +52,13 @@ class DataTomographer:
         assert metric in ('auc', 'logloss')
         metrics_ref, metrics_upd = [], []
         for model in self.models:
-            n_estimators = model.best_params_['n_estimators']
+            try:
+                # TODO: Create proper checks for the model object here
+                # method should return None, None, if classifier does not support stage wise prediction
+                n_estimators = model.best_params_['n_estimators']
+                learning_rate = model.best_params_['learning_rate']
+            except KeyError:
+                return None, None
             metrics_ref.append(np.zeros(n_estimators))
             metrics_upd.append(np.zeros(n_estimators))
         for ix, model in enumerate(self.models):  # loop through streams - reference
@@ -139,6 +148,8 @@ class DataTomographer:
         :return: Nothing. Side effects only :-)
         """
         ref, upd = self.stagewise_metric(metric=metric, verbose=verbose)
+        if ref is None or upd is None:
+            return
         for ix, ll_ref in enumerate(ref):
             ll_upd = upd[ix]
             x, y = 'reference_' + metric, 'update_' + metric

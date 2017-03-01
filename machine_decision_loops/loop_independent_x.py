@@ -1,12 +1,7 @@
 import platform
 import datetime
-import json
 import os
 from time import time
-if "centos" in platform.platform():
-    import matplotlib
-    matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from EventGenerator import EventGenerator as EG
@@ -14,37 +9,13 @@ from ModelUpdater import ModelUpdater as MU
 from EventSelector import EventSelector as ES
 from TrainDataUpdater import TrainDataUpdater as TDU
 from DataTomographer import DataTomographer as DT
+from loop_helper import df_init, df_append_events, df_append_score, save_metadata, plot_namer
+if "centos" in platform.platform():
+    import matplotlib
+    matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 __author__ = "nikos.daniilidis"
-
-
-def save_metadata(event_types, seed_events, update_events, analysis_events, ps, seeds, num_inputs,
-                  classifier_kind, criterion, batch_updates, file_descriptor, dirname, note, readme):
-    """
-    Save the metadata for a run to a json file. See main for parameter explanation.
-    """
-    d = {'event_types': event_types,
-         'seed_events': seed_events,
-         'update_events': update_events,
-         'analysis_events': analysis_events,
-         'ps': ps,
-         'seeds': seeds,
-         'num_inputs': num_inputs,
-         'classifier_kind': classifier_kind,
-         'criterion': criterion,
-         'batch_updates': batch_updates,
-         'file_descriptor': file_descriptor,
-         'note': note,
-         'readme': readme}
-    with open(os.path.join(dirname, file_descriptor+'.json'), 'w') as f:
-        f.write(json.dumps(d, indent=4))
-
-
-def plot_namer(dirname, suffix='.png'):
-    """
-    Minimal utility for formatting plot names.
-    """
-    return lambda fname: os.path.join(dirname, fname + suffix)
 
 
 def main():
@@ -63,7 +34,7 @@ def main():
     batch_updates = 30  # number of batch updates to run for the models
     file_descriptor = 'seed%d_update%d_' % (seed_events, update_events)  # will be used for figure names
     datetimestr = datetime.datetime.now().strftime("%Y%B%d-%H%M")
-    dirname = str(len(event_types)) + '_streams-' + note + '-' + datetimestr
+    dirname = os.path.join('runs', str(len(event_types)) + '_streams-' + note + '-' + datetimestr)
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     save_metadata(event_types, seed_events, update_events, analysis_events, ps, seeds, num_inputs,
@@ -127,7 +98,6 @@ def main():
                                models=ms, event_gains=gs)
             xafs, yafs = es.filter(xs=xas, ys=yas,
                                    models=ms, event_gains=gs)
-            #print yafs[-1]
         msg = ''
         for ix, xi in enumerate(xs):
             msg += str(xi.shape[0]) + '(%3.2f) ' % (1.*sum(ys[ix])/(xi.shape[0]+1e-8))
@@ -158,8 +128,6 @@ def main():
         # lookahead: pass events through updated models filter
         xafnews, yafnews = es.filter(xs=xas, ys=yas,
                                      models=ms, event_gains=gs)
-        #xafnews = xafs
-        #yafnews = yafs
 
         # look at distribution shifts and algorithm performance
         msg = ''
@@ -207,15 +175,15 @@ def main():
         xold_ans = Xuas
         yold_ans = Yuas
 
-    plt.figure()
-    df_kl[kl_cols[1:]].plot()
-    plt.savefig(pn(event_type + 'mean_kl_' + file_descriptor), bbox_inches='tight')
-    plt.close()
+        plt.figure()
+        df_kl[kl_cols[1:]].plot()
+        plt.savefig(pn(event_type + 'mean_kl_' + file_descriptor), bbox_inches='tight')
+        plt.close()
 
-    plt.figure()
-    df_lgls[ll_cols[1:]].plot()
-    plt.savefig(pn(event_type + 'logloss_' + file_descriptor), bbox_inches='tight')
-    plt.close()
+        plt.figure()
+        df_lgls[ll_cols[1:]].plot()
+        plt.savefig(pn(event_type + 'logloss_' + file_descriptor), bbox_inches='tight')
+        plt.close()
 
 
 if __name__ == '__main__':
